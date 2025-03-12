@@ -1,0 +1,103 @@
+select * from census.dbo.Dataset2;
+
+select * from census.dbo.Data1;
+
+-- number of rows into our dataset
+
+select count(*) from census..data1
+select count(*) from census..Dataset2
+
+--dataset for jharkhand and bihar
+
+select * from census..data1 where state in ('jharkhand','bihar')
+
+-- population of india 
+
+select sum(population)population from census..Dataset2
+
+--avg growth
+select state,avg(growth)*100 avg_growth from census..data1 group by state;
+
+--avg sex ratio
+
+select state,round(avg(sex_ratio),0) avg_sex_ratio from census..data1 group by state order by avg_sex_ratio desc;
+
+--avg literacy rate
+
+select state,round(avg(literacy),0) avg_literacy from census..data1 
+group by state having round(avg(literacy),0)>90 order by avg_literacy desc;
+
+--top 3 states showing highest growth ratio
+
+select top 3 state,avg(growth)*100 avg_growth from census..data1 group by state order by avg_growth desc;
+
+--bottom 3 states showing lowerst sex ratio
+
+select top 3 state,round(avg(sex_ratio),0) avg_sex_ratio from census..data1  group by state  order by avg_sex_ratio asc;
+
+-- top and bottom 3 states in literacy states
+drop table if exists #topstates;
+create table #topstates
+( state nvarchar(255),
+  topstates float
+
+  )
+
+insert into #topstates
+select state,round(avg(literacy),0) avg_literacy from census..data1
+group by state order by avg_literacy desc;
+
+select top 3 * from #topstates order by #topstates.topstates desc;
+
+drop table if exists #bottomstates;
+create table #bottomstates
+( state nvarchar(255),
+  bottomstates float
+
+  )
+
+insert into #bottomstates
+select state,round(avg(literacy),0) avg_literacy from census..data1
+group by state order by avg_literacy desc;
+
+select top 3 * from #bottomstates order by #bottomstates.bottomstates asc;
+
+--union operator
+
+select * from (
+select top 3 * from #topstates order by #topstates.topstates desc) a
+
+union
+
+select * from (
+select top 3 * from #bottomstates order by #bottomstates.bottomstates asc) b;
+
+--states starting with letter a
+
+select distinct state from census..data1 where lower(state) like 'a%' or lower(state) like 'b%'
+
+select distinct state from census..data1 where lower(state) like 'a%' and lower(state) like 'm%'
+
+--joining both table
+
+select a.district,a.state,a.sex_ratio,b.population from census..data1 a inner join census..dataset2 b on a.district=b.district 
+
+-- total males and females
+
+select d.state,sum(d.males) total_males,sum(d.females) total_females from
+(select c.district,c.state,round(c.population/(c.sex_ratio+1),0) males, round((c.population*c.sex_ratio)/(c.sex_ratio+1),0) females from
+(select a.district,a.state,a.sex_ratio/1000 sex_ratio,b.population from census..data1 a inner join census..Dataset2 b on a.district=b.district)c) d
+group by d.state; 
+
+-- total literacy rate
+
+select d.district,d.state,d.literacy*d.population literate_people,(1-d.literacy)* d. population illiterate_people from
+(select a.district,a.state,a.literacy/100 literacy,b.population from census..data1 a inner join census..Dataset2 b on a.district=b.district) d
+
+--population in previous census
+
+select sum(m.previous_census_population) previous_census_population,sum(m.current_census_population) current_census_population from(
+select e.state,sum(e.previous_census_population) previous_census_population,sum(e.current_census_population) current_census_population from
+(select d.district,d.state,round(d.population/(1+d.growth),0) previous_census_population, d.population current_census_population from
+(select a.district,a.state,a.growth growth,b.population from census..Data1 a inner join census..dataset2 b on a.district=b.district) d) e
+group by e.state)m
